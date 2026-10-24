@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # <-- TAMBAHAN: Memungkinkan jalankan manual dari GitHub
+  workflow_dispatch: 
 
 permissions:
   contents: write
@@ -23,13 +23,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24' # Diperbaiki: Sesuaikan dengan package.json (>=24.0.0)
 
       - name: Download Node.exe Portable
         shell: bash
         run: |
           mkdir -p build-portable
-          curl -sL -f -o build-portable/node.exe https://nodejs.org/dist/v22.20.0/win-x64/node.exe
+          # Mengambil Node versi 24 terbaru secara dinamis
+          curl -sL -f -o build-portable/node.exe https://nodejs.org/dist/latest-v24.x/win-x64/node.exe
           SIZE=$(stat -c%s build-portable/node.exe)
           if [ "$SIZE" -lt 50000000 ]; then echo "Download gagal"; exit 1; fi
 
@@ -37,18 +38,25 @@ jobs:
         shell: bash
         run: |
           mkdir -p build-portable/app
-          cp server.js reset-guru.js package.json package-lock.json build-portable/app/
+          # package-lock.json dihilangkan agar npm install berjalan fresh dan tidak konflik OS
+          cp server.js reset-guru.js package.json build-portable/app/
           cp -r public build-portable/app/
 
       - name: Install Dependencies & Cek Binary Windows
         shell: bash
         run: |
           cd build-portable/app
-          npm install --omit=dev --no-audit --no-fund 2>&1 | tail -5
-          echo "=== Cek binary Windows better-sqlite3 ==="
-          ls -la node_modules/better-sqlite3/prebuilds/
-          if [ ! -f "node_modules/better-sqlite3/prebuilds/win32-x64.node" ]; then
-            echo "Binary Windows tidak ada!"; exit 1;
+          npm install --omit=dev --no-audit --no-fund
+          
+          echo "=== Paksa unduh/bangun binary Windows ==="
+          npm rebuild better-sqlite3
+          
+          echo "=== Cek lokasi binary better-sqlite3 ==="
+          find node_modules/better-sqlite3 -name "*.node"
+          
+          # Diperbaiki: Mencari file .node di mana saja, bukan hanya di folder prebuilds
+          if [ -z "$(find node_modules/better-sqlite3 -name '*.node')" ]; then
+            echo "❌ Binary Windows tidak ada!"; exit 1;
           fi
 
       - name: Create start.bat
