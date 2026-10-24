@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Database & Uploads (SANGAT PENTING)
+data/
+backups/
+uploads/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Environment
+.env
+.env.local
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
