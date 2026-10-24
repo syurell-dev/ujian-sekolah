@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   build-release:
-    runs-on: ubuntu-latest
+    # KUNCI PERBAIKAN: Jalankan di Windows agar binary better-sqlite3 sesuai
+    runs-on: windows-latest
     timeout-minutes: 15
 
     steps:
@@ -25,30 +26,33 @@ jobs:
           node-version: '22'
 
       - name: Download Node.exe Portable
+        shell: bash
         run: |
           mkdir -p build-portable
           curl -sL -f -o build-portable/node.exe https://nodejs.org/dist/v22.20.0/win-x64/node.exe
           SIZE=$(stat -c%s build-portable/node.exe)
-          if [ "$SIZE" -lt 50000000 ]; then echo "❌ Download gagal"; exit 1; fi
+          if [ "$SIZE" -lt 50000000 ]; then echo "Download gagal"; exit 1; fi
 
       - name: Copy Project Files
+        shell: bash
         run: |
           mkdir -p build-portable/app
-          # Menyesuaikan dengan file aplikasi ujian Anda
           cp server.js reset-guru.js package.json package-lock.json build-portable/app/
           cp -r public build-portable/app/
 
       - name: Install Dependencies & Cek Binary Windows
+        shell: bash
         run: |
           cd build-portable/app
           npm install --omit=dev --no-audit --no-fund 2>&1 | tail -5
           echo "=== Cek binary Windows better-sqlite3 ==="
           ls -la node_modules/better-sqlite3/prebuilds/
           if [ ! -f "node_modules/better-sqlite3/prebuilds/win32-x64.node" ]; then
-            echo "❌ Binary Windows tidak ada!"; exit 1;
+            echo "Binary Windows tidak ada!"; exit 1;
           fi
 
       - name: Create start.bat
+        shell: bash
         run: |
           cat > build-portable/start.bat << 'EOF'
           @echo off
@@ -68,24 +72,26 @@ jobs:
           pause
           EOF
 
-      - name: Create ZIP
+      - name: Create ZIP (Menggunakan 7z di Windows)
+        shell: bash
         run: |
           cd build-portable
-          zip -r -q -9 ../ujian-${{ github.ref_name }}.zip . \
-            -x "*/node_modules/*/test/*" \
-               "*/node_modules/*/tests/*" \
-               "*/node_modules/*/docs/*" \
-               "*/node_modules/*/*.md" \
-               "*/node_modules/*/*.txt" \
-               "*/node_modules/*/*.map" \
-               "*/node_modules/*/*.d.ts" \
-               "*/node_modules/*/.eslint*" \
-               "*/node_modules/*/.editorconfig" \
-               "*/node_modules/*/.travis.yml" \
-               "*/node_modules/*/.github/*" \
-               "*/node_modules/*/example/*" \
-               "*/node_modules/*/examples/*" \
-               "*/node_modules/.bin/*"
+          # 7z a -r -tzip <output.zip> <input_folder> -x!<exclude_pattern>
+          7z a -r -tzip ../ujian-${{ github.ref_name }}.zip . \
+            -xr!node_modules/*/test \
+            -xr!node_modules/*/tests \
+            -xr!node_modules/*/docs \
+            -xr!node_modules/*/*.md \
+            -xr!node_modules/*/*.txt \
+            -xr!node_modules/*/*.map \
+            -xr!node_modules/*/*.d.ts \
+            -xr!node_modules/*/.eslint* \
+            -xr!node_modules/*/.editorconfig \
+            -xr!node_modules/*/.travis.yml \
+            -xr!node_modules/*/.github \
+            -xr!node_modules/*/example \
+            -xr!node_modules/*/examples \
+            -xr!node_modules/.bin
           cd ..
           echo "=== File ZIP hasil ==="
           ls -lh ujian-*.zip
@@ -99,7 +105,7 @@ jobs:
           body: |
             ## Aplikasi Ujian Online — ${{ github.ref_name }}
 
-            ### 🚀 Cara Pakai
+            ### Cara Pakai
             1. Download `ujian-${{ github.ref_name }}.zip`
             2. Extract ke folder manapun di Windows
             3. Dobel-klik `start.bat`
