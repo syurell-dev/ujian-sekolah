@@ -1,0 +1,22 @@
+{
+  "name": "ujian-online",
+  "version": "2.0.0",
+  "description": "Aplikasi ujian online untuk nilai rapor sekolah (sumatif).",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.9.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "katex": "^0.16.11",
+    "multer": "^1.4.5-lts.1",
+    "sanitize-html": "^2.13.0"
+  }
+}
