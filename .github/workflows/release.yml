@@ -4,13 +4,13 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: # <-- TAMBAHAN: Memungkinkan jalankan manual dari GitHub
 
 permissions:
   contents: write
 
 jobs:
   build-release:
-    # KUNCI PERBAIKAN: Jalankan di Windows agar binary better-sqlite3 sesuai
     runs-on: windows-latest
     timeout-minutes: 15
 
@@ -76,7 +76,6 @@ jobs:
         shell: bash
         run: |
           cd build-portable
-          # 7z a -r -tzip <output.zip> <input_folder> -x!<exclude_pattern>
           7z a -r -tzip ../ujian-${{ github.ref_name }}.zip . \
             -xr!node_modules/*/test \
             -xr!node_modules/*/tests \
