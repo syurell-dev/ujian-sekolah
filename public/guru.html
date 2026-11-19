@@ -28,10 +28,10 @@
       --warning-light: #fef3c7;
       --info: #0284c7;
       --info-light: #e0f2fe;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow: 0 1px 3px rgba(0, 0, 0, .05), 0 1px 2px rgba(0, 0, 0, .03);
-      --shadow-md: 0 4px 12px rgba(0, 0, 0, .06);
+      --radius: 3px;
+      --radius-sm: 2px;
+      --shadow: none;
+      --shadow-md: 0 2px 8px rgba(15, 23, 42, .08);
       --shadow-lg: 0 20px 40px rgba(15, 23, 42, .15);
     }
 
@@ -52,7 +52,7 @@
       font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
@@ -67,7 +67,7 @@
     textarea,
     select {
       font-family: inherit;
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
     }
 
     [hidden] {
@@ -90,7 +90,7 @@
 
     .login-card {
       background: var(--surface);
-      border-radius: 16px;
+      border-radius: 3px;
       box-shadow: var(--shadow-lg);
       padding: 36px;
       width: 100%;
@@ -105,26 +105,26 @@
     .login-logo {
       width: 56px;
       height: 56px;
-      border-radius: 14px;
+      border-radius: 3px;
       background: var(--primary);
       color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 24px;
+      font-size: calc(24px * var(--text-scale, 1));
       margin-bottom: 12px;
     }
 
     .login-brand h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: calc(20px * var(--text-scale, 1));
     }
 
     .login-brand p {
       margin: 4px 0 0;
       color: var(--muted);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
     }
 
     .field {
@@ -133,7 +133,7 @@
 
     .field label {
       display: block;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       font-weight: 600;
       color: var(--text);
       margin-bottom: 6px;
@@ -176,7 +176,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
     }
 
     .checkbox-label input[type="checkbox"] {
@@ -190,7 +190,7 @@
       gap: 6px;
       padding: 9px 16px;
       border-radius: var(--radius-sm);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       font-weight: 600;
       border: none;
       background: var(--primary);
@@ -204,7 +204,7 @@
     }
 
     .btn:active {
-      transform: scale(.98);
+      transform: none;
     }
 
     .btn:disabled {
@@ -215,7 +215,7 @@
     .btn-block {
       width: 100%;
       padding: 12px;
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
     }
 
     .btn-outline {
@@ -258,12 +258,12 @@
 
     .btn-xs {
       padding: 5px 10px;
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
     }
 
     .btn-sm {
       padding: 7px 12px;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
     }
 
     .app {
@@ -293,24 +293,24 @@
     .sidebar-logo {
       width: 36px;
       height: 36px;
-      border-radius: 10px;
+      border-radius: 2px;
       background: var(--primary);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 16px;
+      font-size: calc(16px * var(--text-scale, 1));
     }
 
     .sidebar-brand-title {
       font-weight: 700;
-      font-size: 15px;
+      font-size: calc(15px * var(--text-scale, 1));
       line-height: 1.2;
     }
 
     .sidebar-brand-sub {
-      font-size: 11px;
+      font-size: calc(11px * var(--text-scale, 1));
       color: var(--muted);
     }
 
@@ -331,7 +331,7 @@
       border: none;
       color: var(--muted);
       font-weight: 500;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       text-align: left;
       margin-bottom: 2px;
       transition: all .12s;
@@ -362,7 +362,7 @@
     }
 
     .sidebar-user {
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
       color: var(--muted);
       padding: 8px 12px;
       word-break: break-all;
@@ -371,7 +371,7 @@
     .sidebar-user strong {
       display: block;
       color: var(--text);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       margin-bottom: 2px;
     }
 
@@ -396,12 +396,12 @@
 
     .topbar h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: calc(20px * var(--text-scale, 1));
     }
 
     .topbar-sub {
       color: var(--muted);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       margin-top: 2px;
     }
 
@@ -437,14 +437,14 @@
 
     .card-header h2 {
       margin: 0;
-      font-size: 15px;
+      font-size: calc(15px * var(--text-scale, 1));
       font-weight: 700;
     }
 
     .card-header p {
       margin: 2px 0 0;
       color: var(--muted);
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
     }
 
     .card-body {
@@ -475,7 +475,7 @@
     .stat-icon {
       width: 40px;
       height: 40px;
-      border-radius: 10px;
+      border-radius: 2px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -503,14 +503,14 @@
     }
 
     .stat-value {
-      font-size: 26px;
+      font-size: calc(26px * var(--text-scale, 1));
       font-weight: 700;
       line-height: 1;
     }
 
     .stat-label {
       color: var(--muted);
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
       margin-top: 4px;
     }
 
@@ -522,7 +522,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
     }
 
     thead th {
@@ -531,7 +531,7 @@
       text-align: left;
       font-weight: 600;
       color: var(--muted);
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
       text-transform: uppercase;
       letter-spacing: .03em;
       white-space: nowrap;
@@ -563,7 +563,7 @@
 
     .action-select {
       padding: 5px 8px;
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
       font-weight: 600;
       color: var(--text);
       background: var(--surface);
@@ -610,9 +610,9 @@
       padding: 8px 12px;
       background: transparent;
       border: none;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       color: var(--text);
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
       font-weight: 500;
     }
@@ -642,8 +642,8 @@
     .badge {
       display: inline-block;
       padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 11px;
+      border-radius: 2px;
+      font-size: calc(11px * var(--text-scale, 1));
       font-weight: 600;
     }
 
@@ -702,7 +702,7 @@
     .alert {
       padding: 10px 14px;
       border-radius: var(--radius-sm);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       margin-top: 12px;
     }
 
@@ -731,14 +731,14 @@
     }
 
     .small {
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
     }
 
     .empty {
       padding: 32px;
       text-align: center;
       color: var(--muted);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
     }
 
     .grid-2 {
@@ -762,7 +762,7 @@
       align-items: center;
       justify-content: center;
       padding: 16px;
-      backdrop-filter: blur(2px);
+      backdrop-filter: none;
     }
 
     .modal-backdrop.active {
@@ -771,7 +771,7 @@
 
     .modal {
       background: var(--surface);
-      border-radius: 14px;
+      border-radius: 3px;
       padding: 24px;
       max-width: 520px;
       width: 100%;
@@ -790,12 +790,12 @@
 
     .modal h3 {
       margin: 0 0 6px;
-      font-size: 17px;
+      font-size: calc(17px * var(--text-scale, 1));
     }
 
     .modal .modal-sub {
       color: var(--muted);
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       margin-bottom: 16px;
     }
 
@@ -827,7 +827,7 @@
       border-left: 4px solid var(--primary);
       box-shadow: var(--shadow-md);
       padding: 12px 16px;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       animation: toastIn .3s ease;
     }
 
@@ -850,7 +850,7 @@
 
     .toast-body {
       color: var(--muted);
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
     }
 
     @keyframes toastIn {
@@ -888,13 +888,13 @@
 
     .editor-section>label {
       display: block;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       font-weight: 600;
       margin-bottom: 6px;
     }
 
     .editor-section .hint {
-      font-size: 11px;
+      font-size: calc(11px * var(--text-scale, 1));
       color: var(--muted);
       margin-top: 4px;
     }
@@ -916,9 +916,9 @@
       padding: 0 8px;
       border: none;
       background: transparent;
-      border-radius: 5px;
+      border-radius: 2px;
       font-weight: 600;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       color: var(--text);
       cursor: pointer;
       display: inline-flex;
@@ -932,7 +932,7 @@
     }
 
     .tb-btn:active {
-      transform: scale(.95);
+      transform: none;
     }
 
     .tb-btn.active {
@@ -959,7 +959,7 @@
       border: 1.5px solid var(--border);
       border-radius: 0 0 var(--radius-sm) var(--radius-sm);
       background: #fff;
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
       line-height: 1.6;
     }
 
@@ -972,7 +972,7 @@
     .wysiwyg img {
       max-width: 100%;
       height: auto;
-      border-radius: 6px;
+      border-radius: 2px;
       margin: 4px 0;
     }
 
@@ -1002,9 +1002,9 @@
     .type-pill {
       padding: 7px 13px;
       border: 1.5px solid var(--border);
-      border-radius: 999px;
+      border-radius: 2px;
       background: #fff;
-      font-size: 12px;
+      font-size: calc(12px * var(--text-scale, 1));
       font-weight: 600;
       cursor: pointer;
       transition: all .12s;
@@ -1032,7 +1032,7 @@
       min-width: 38px;
       height: 38px;
       padding: 0 12px;
-      border-radius: 8px;
+      border-radius: 2px;
       border: 1.5px solid var(--border);
       background: #fff;
       font-weight: 700;
@@ -1057,7 +1057,7 @@
       padding: 9px 12px;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
     }
 
     .kunci-input:focus {
@@ -1075,7 +1075,7 @@
     }
 
     .preview-panel .pv-title {
-      font-size: 11px;
+      font-size: calc(11px * var(--text-scale, 1));
       text-transform: uppercase;
       letter-spacing: .05em;
       color: var(--muted);
@@ -1085,31 +1085,31 @@
     .pv-stimulus {
       background: #fff;
       border-left: 4px solid var(--primary);
-      border-radius: 6px;
+      border-radius: 2px;
       padding: 10px 12px;
       max-height: 180px;
       overflow-y: auto;
       margin-bottom: 12px;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       line-height: 1.55;
     }
 
     .pv-question {
       background: #fff;
-      border-radius: 6px;
+      border-radius: 2px;
       padding: 10px 12px;
       margin-bottom: 10px;
-      font-size: 14px;
+      font-size: calc(14px * var(--text-scale, 1));
       line-height: 1.6;
     }
 
     .pv-opt {
       background: #fff;
       border: 1.5px solid var(--border);
-      border-radius: 8px;
+      border-radius: 2px;
       padding: 9px 12px;
       margin-bottom: 5px;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       display: flex;
       gap: 9px;
       align-items: flex-start;
@@ -1124,13 +1124,13 @@
     .pv-opt .pv-key {
       width: 22px;
       height: 22px;
-      border-radius: 50%;
+      border-radius: 2px;
       background: var(--border-soft);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 11px;
+      font-size: calc(11px * var(--text-scale, 1));
       flex-shrink: 0;
     }
 
@@ -1142,7 +1142,7 @@
     .pv-empty {
       color: var(--muted-light);
       font-style: italic;
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       padding: 20px;
       text-align: center;
     }
@@ -1153,7 +1153,7 @@
       gap: 12px;
       padding: 12px;
       border: 1px solid var(--border-soft);
-      border-radius: 8px;
+      border-radius: 2px;
       margin-bottom: 8px;
       background: #fff;
     }
@@ -1174,12 +1174,12 @@
     }
 
     .soal-list-item .body .teks {
-      font-size: 13px;
+      font-size: calc(13px * var(--text-scale, 1));
       margin-bottom: 4px;
     }
 
     .soal-list-item .body .meta {
-      font-size: 11px;
+      font-size: calc(11px * var(--text-scale, 1));
       color: var(--muted);
     }
 
@@ -1192,8 +1192,8 @@
     .badge-tipe {
       display: inline-block;
       padding: 2px 7px;
-      border-radius: 999px;
-      font-size: 10px;
+      border-radius: 2px;
+      font-size: calc(10px * var(--text-scale, 1));
       font-weight: 700;
       background: var(--primary-100);
       color: var(--primary-dark);
@@ -1205,11 +1205,11 @@
       display: none;
       width: 42px;
       height: 42px;
-      border-radius: 10px;
+      border-radius: 2px;
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 20px;
+      font-size: calc(20px * var(--text-scale, 1));
       line-height: 1;
       cursor: pointer;
       flex-shrink: 0;
@@ -1227,7 +1227,7 @@
       inset: 0;
       background: rgba(15, 23, 42, .5);
       z-index: 90;
-      backdrop-filter: blur(2px);
+      backdrop-filter: none;
     }
 
     .sidebar-backdrop.active {
@@ -1266,11 +1266,11 @@
       }
 
       .topbar h1 {
-        font-size: 17px;
+        font-size: calc(17px * var(--text-scale, 1));
       }
 
       .topbar-sub {
-        font-size: 12px;
+        font-size: calc(12px * var(--text-scale, 1));
       }
 
       .content {
@@ -1278,7 +1278,7 @@
       }
 
       .card {
-        border-radius: 10px;
+        border-radius: 2px;
         margin-bottom: 12px;
       }
 
@@ -1288,7 +1288,7 @@
       }
 
       .card-header h2 {
-        font-size: 14px;
+        font-size: calc(14px * var(--text-scale, 1));
       }
 
       .card-body {
@@ -1320,11 +1320,11 @@
       }
 
       .stat-value {
-        font-size: 20px;
+        font-size: calc(20px * var(--text-scale, 1));
       }
 
       .stat-label {
-        font-size: 11px;
+        font-size: calc(11px * var(--text-scale, 1));
       }
 
       .toolbar {
@@ -1347,12 +1347,12 @@
       }
 
       table {
-        font-size: 12px;
+        font-size: calc(12px * var(--text-scale, 1));
       }
 
       thead th {
         padding: 8px 10px;
-        font-size: 11px;
+        font-size: calc(11px * var(--text-scale, 1));
       }
 
       tbody td {
@@ -1379,11 +1379,11 @@
         margin-top: 8px;
         padding: 18px;
         max-height: calc(100vh - 16px);
-        border-radius: 12px;
+        border-radius: 3px;
       }
 
       .modal h3 {
-        font-size: 16px;
+        font-size: calc(16px * var(--text-scale, 1));
       }
 
       .modal-actions {
@@ -1422,7 +1422,7 @@
       }
 
       .topbar h1 {
-        font-size: 16px;
+        font-size: calc(16px * var(--text-scale, 1));
       }
 
       .content {
@@ -1434,12 +1434,12 @@
       }
 
       .btn {
-        font-size: 13px;
+        font-size: calc(13px * var(--text-scale, 1));
         padding: 10px 14px;
       }
 
       .btn-xs {
-        font-size: 11px;
+        font-size: calc(11px * var(--text-scale, 1));
         padding: 6px 9px;
       }
 
@@ -1447,7 +1447,23 @@
         padding: 16px;
       }
     }
+    /* ===== Penyesuaian tampilan blok: flat, sudut tegas ===== */
+    .card, .stat-card { box-shadow: none; }
+    .login-card, .modal { border: 1px solid var(--border); }
+    thead th { background: #eef2f6; border-bottom: 2px solid #dbe2ea; }
+    tbody tr:hover { background: #f8fafc; }
+    .stat-card { border-color: var(--border); }
+    .stat-value, .stat-label { font-variant-numeric: tabular-nums; }
+    .btn, .nav-item { letter-spacing: .01em; }
+    .badge, .badge-tipe { border: 1px solid rgba(15, 23, 42, .08); }
+    .toast { border-radius: 3px; }
+    .type-pill:hover, .kunci-btn:hover { background: var(--border-soft); }
+    .type-pill.active:hover, .kunci-btn.active:hover { background: var(--primary-hover); }
+    :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .field input, .field select, .field textarea, .action-select, .kunci-input, .toolbar .search input { border-width: 1px; }
   </style>
+  <link rel="stylesheet" href="/ui-scale.css">
+  <script src="/ui-scale.js"></script>
 </head>
 
 <body>
@@ -2212,7 +2228,7 @@
         if (rows.length === 0) { tb.innerHTML = '<tr><td colspan="4" class="empty">Belum ada murid.</td></tr>'; return; }
         tb.innerHTML = rows.map(r => '<tr class="row-murid" data-id="' + r.id + '" style="cursor:pointer">' +
           '<td class="cell-num">' + esc(r.nis) + '</td>' +
-          '<td>' + esc(r.nama) + (r.is_demo ? ' <span class="badge badge-yellow" style="font-size:10px">DEMO</span>' : '') + '</td>' +
+          '<td>' + esc(r.nama) + (r.is_demo ? ' <span class="badge badge-yellow" style="font-size: calc(10px * var(--text-scale, 1))">DEMO</span>' : '') + '</td>' +
           '<td>' + esc(r.kelas || '-') + '</td>' +
           '<td><div class="row-actions">' +
           '<button class="btn btn-outline btn-xs" data-detail="' + r.id + '">Detail</button>' +
@@ -2256,10 +2272,10 @@
             const map = { active: 'badge-blue', submitted: 'badge-green', timeout: 'badge-yellow', terminated: 'badge-red' };
             return '<span class="badge ' + (map[st] || 'badge-gray') + '">' + st + '</span>';
           };
-          let html = '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:var(--primary-50);border-radius:var(--radius-sm);margin-bottom:16px">' +
-            '<div style="width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">' + esc(s.nama.charAt(0).toUpperCase()) + '</div>' +
+          let html = '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:var(--primary-50);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:16px">' +
+            '<div style="width:52px;height:52px;border-radius:2px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size: calc(20px * var(--text-scale, 1));font-weight:700">' + esc(s.nama.charAt(0).toUpperCase()) + '</div>' +
             '<div style="flex:1;min-width:200px">' +
-            '<div style="font-size:17px;font-weight:700">' + esc(s.nama) + (s.is_demo ? ' <span class="badge badge-yellow" style="font-size:10px">DEMO</span>' : '') + '</div>' +
+            '<div style="font-size: calc(17px * var(--text-scale, 1));font-weight:700">' + esc(s.nama) + (s.is_demo ? ' <span class="badge badge-yellow" style="font-size: calc(10px * var(--text-scale, 1))">DEMO</span>' : '') + '</div>' +
             '<div class="muted small">NIS: <b>' + esc(s.nis) + '</b> - Kelas: <b>' + esc(s.kelas || '-') + '</b></div>' +
             '</div></div>';
           html += '<div class="stat-grid" style="margin-bottom:16px">' +
@@ -2321,7 +2337,7 @@
           const d = await api('/api/guru/students/' + id + '/reset-password', { method: 'POST', body: JSON.stringify({}) });
           openModal(
             '<p>Sandi baru untuk <strong>' + esc(r.nama) + '</strong> (NIS ' + esc(r.nis) + '):</p>' +
-            '<div style="background:var(--primary-50);border:1.5px dashed var(--primary);border-radius:8px;padding:16px;text-align:center;font-family:monospace;font-size:20px;font-weight:700;color:var(--primary-dark);user-select:all">' + esc(d.sandi) + '</div>' +
+            '<div style="background:var(--primary-50);border:1.5px dashed var(--primary);border-radius:2px;padding:16px;text-align:center;font-family:monospace;font-size: calc(20px * var(--text-scale, 1));font-weight:700;color:var(--primary-dark);user-select:all">' + esc(d.sandi) + '</div>' +
             '<p class="muted small" style="margin-top:12px">Catat dan berikan kepada murid. Sandi ini tidak akan ditampilkan lagi.</p>',
             { title: 'Sandi Baru', actions: [{ label: 'Tutup', class: 'btn', onClick: closeModal }] }
           );
@@ -2860,7 +2876,7 @@
       if (data.stimulus && data.stimulus.replace(/<[^>]+>/g, '').trim()) html += '<div class="pv-stimulus">' + renderKatexHTML(data.stimulus) + '</div>';
       html += '<div class="pv-question">' + (renderKatexHTML(data.pertanyaan) || '<span class="muted">(pertanyaan kosong)</span>') + '</div>';
       if (data.tipe === 'isian') {
-        html += '<div style="font-size:12px;color:var(--muted);margin-top:8px">Jawaban murid: kolom teks isian.</div>';
+        html += '<div style="font-size: calc(12px * var(--text-scale, 1));color:var(--muted);margin-top:8px">Jawaban murid: kolom teks isian.</div>';
         if (data.kunci) html += '<div class="pv-opt correct"><span class="pv-key">v</span><div>Jawaban diterima: <b>' + esc(data.kunci) + '</b></div></div>';
       } else if (data.tipe === 'bs') {
         html += '<div class="pv-opt' + (data.kunci === 'A' ? ' correct' : '') + '"><span class="pv-key">A</span><div>Benar</div></div>';

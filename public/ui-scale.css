@@ -1,0 +1,160 @@
+/* Pengaturan ukuran tampilan & teks (dipakai index.html dan guru.html) */
+:root {
+  --ui-scale: 1;
+  --text-scale: 1;
+}
+
+html {
+  zoom: var(--ui-scale);
+}
+
+/* vh tidak ikut zoom, jadi tinggi layar penuh dibagi skala */
+.login-wrap,
+.app,
+#exam-view {
+  min-height: calc(100vh / var(--ui-scale));
+}
+
+@media (min-width: 901px) {
+  .sidebar {
+    height: calc(100vh / var(--ui-scale));
+  }
+}
+
+@media (min-width: 900px) {
+  .navigator-panel {
+    max-height: calc(100vh / var(--ui-scale) - 106px);
+  }
+}
+
+.ui-settings {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 400;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+}
+
+.ui-fab {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #334155;
+  border-radius: 3px;
+  background: #0f172a;
+  color: #fff;
+  font-family: inherit;
+  font-size: calc(13px * var(--text-scale));
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+}
+
+.ui-fab:hover {
+  background: #1e293b;
+}
+
+.ui-fab:focus-visible,
+.ui-panel button:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.ui-panel {
+  position: absolute;
+  left: 0;
+  bottom: 52px;
+  width: 262px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+}
+
+.ui-panel[hidden] {
+  display: none;
+}
+
+.ui-panel h4 {
+  margin: 0 0 12px;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #64748b;
+}
+
+.ui-row {
+  margin-bottom: 12px;
+}
+
+.ui-row > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #475569;
+}
+
+.ui-seg {
+  display: flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ui-seg button {
+  flex: 1;
+  padding: 7px 0;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-family: inherit;
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ui-seg button:last-child {
+  border-right: 0;
+}
+
+.ui-seg button:hover {
+  background: #f1f5f9;
+}
+
+.ui-seg button.active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.ui-reset {
+  width: 100%;
+  margin-top: 2px;
+  padding: 7px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #fff;
+  color: #334155;
+  font-family: inherit;
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-reset:hover {
+  background: #f1f5f9;
+}
+
+@media print {
+  .ui-settings {
+    display: none;
+  }
+}
