@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Aplikasi Ujian</string>
+    <string name="title_activity_main">Aplikasi Ujian</string>
+    <string name="package_name">id.sekolah.ujian</string>
+    <string name="custom_url_scheme">id.sekolah.ujian</string>
+    <string name="exam_client_secret">ujian-exam-client-v1</string>
+</resources>

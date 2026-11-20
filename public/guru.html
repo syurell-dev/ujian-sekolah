@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme-enabled>
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <title>Panel Guru</title>
   <link rel="stylesheet" href="/katex/katex.min.css">
   <script src="/katex/katex.min.js"></script>
   <style>
     :root {
+      color-scheme: light;
       --primary: #10b981;
       --primary-hover: #059669;
       --primary-dark: #047857;
@@ -23,16 +25,52 @@
       --muted: #6b7280;
       --muted-light: #9ca3af;
       --danger: #dc2626;
+      --danger-hover: #b91c1c;
       --danger-light: #fee2e2;
+      --danger-text: #991b1b;
       --warning: #d97706;
       --warning-light: #fef3c7;
+      --warning-text: #92400e;
       --info: #0284c7;
       --info-light: #e0f2fe;
+      --info-text: #075985;
+      --badge-border: rgba(15, 23, 42, .08);
       --radius: 3px;
       --radius-sm: 2px;
       --shadow: none;
       --shadow-md: 0 2px 8px rgba(15, 23, 42, .08);
       --shadow-lg: 0 20px 40px rgba(15, 23, 42, .15);
+    }
+
+    /* ===== Tema gelap ===== */
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --primary-dark: #6ee7b7;
+      --primary-50: rgba(16, 185, 129, .12);
+      --primary-100: rgba(16, 185, 129, .2);
+      --primary-200: rgba(16, 185, 129, .32);
+      --bg: #0b1220;
+      --surface: #111a2b;
+      --border: #2a3648;
+      --border-soft: #1d2838;
+      --text: #e6edf6;
+      --muted: #94a3b8;
+      --muted-light: #64748b;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --danger-light: rgba(248, 113, 113, .14);
+      --danger-text: #fca5a5;
+      --warning: #fbbf24;
+      --warning-light: rgba(251, 191, 36, .14);
+      --warning-text: #fcd34d;
+      --info: #38bdf8;
+      --info-light: rgba(56, 189, 248, .14);
+      --info-text: #7dd3fc;
+      --badge-border: rgba(255, 255, 255, .1);
+      --shadow-md: 0 2px 10px rgba(0, 0, 0, .45);
+      --shadow-lg: 0 24px 60px rgba(0, 0, 0, .6);
     }
 
     * {
@@ -68,6 +106,44 @@
     select {
       font-family: inherit;
       font-size: calc(14px * var(--text-scale, 1));
+    }
+
+    /* Warna kontrol form selalu mengikuti tema, bukan tema OS */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    textarea,
+    select {
+      background-color: var(--surface);
+      color: var(--text);
+    }
+
+    select option {
+      background-color: var(--surface);
+      color: var(--text);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--muted-light);
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+      accent-color: var(--primary);
+    }
+
+    input[type="file"] {
+      color: var(--text);
+    }
+
+    input[type="file"]::file-selector-button {
+      margin-right: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
     }
 
     [hidden] {
@@ -243,7 +319,7 @@
     }
 
     .btn-danger:hover {
-      background: #b91c1c;
+      background: var(--danger-hover);
     }
 
     .btn-danger-outline {
@@ -359,6 +435,10 @@
     .sidebar-footer {
       padding: 12px;
       border-top: 1px solid var(--border-soft);
+    }
+
+    .sidebar-footer .nav-item {
+      margin-bottom: 8px;
     }
 
     .sidebar-user {
@@ -708,7 +788,7 @@
 
     .alert-error {
       background: var(--danger-light);
-      color: #991b1b;
+      color: var(--danger-text);
     }
 
     .alert-ok {
@@ -718,12 +798,12 @@
 
     .alert-info {
       background: var(--info-light);
-      color: #075985;
+      color: var(--info-text);
     }
 
     .alert-warn {
       background: var(--warning-light);
-      color: #92400e;
+      color: var(--warning-text);
     }
 
     .muted {
@@ -958,7 +1038,7 @@
       padding: 10px 12px;
       border: 1.5px solid var(--border);
       border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-      background: #fff;
+      background: var(--surface);
       font-size: calc(14px * var(--text-scale, 1));
       line-height: 1.6;
     }
@@ -1003,7 +1083,7 @@
       padding: 7px 13px;
       border: 1.5px solid var(--border);
       border-radius: 2px;
-      background: #fff;
+      background: var(--surface);
       font-size: calc(12px * var(--text-scale, 1));
       font-weight: 600;
       cursor: pointer;
@@ -1034,7 +1114,7 @@
       padding: 0 12px;
       border-radius: 2px;
       border: 1.5px solid var(--border);
-      background: #fff;
+      background: var(--surface);
       font-weight: 700;
       cursor: pointer;
       transition: all .12s;
@@ -1067,7 +1147,7 @@
     }
 
     .preview-panel {
-      background: #f8fafc;
+      background: var(--bg);
       border: 1.5px dashed var(--border);
       border-radius: var(--radius-sm);
       padding: 14px;
@@ -1083,7 +1163,7 @@
     }
 
     .pv-stimulus {
-      background: #fff;
+      background: var(--surface);
       border-left: 4px solid var(--primary);
       border-radius: 2px;
       padding: 10px 12px;
@@ -1095,7 +1175,7 @@
     }
 
     .pv-question {
-      background: #fff;
+      background: var(--surface);
       border-radius: 2px;
       padding: 10px 12px;
       margin-bottom: 10px;
@@ -1104,7 +1184,7 @@
     }
 
     .pv-opt {
-      background: #fff;
+      background: var(--surface);
       border: 1.5px solid var(--border);
       border-radius: 2px;
       padding: 9px 12px;
@@ -1155,7 +1235,7 @@
       border: 1px solid var(--border-soft);
       border-radius: 2px;
       margin-bottom: 8px;
-      background: #fff;
+      background: var(--surface);
     }
 
     .soal-list-item:hover {
@@ -1450,17 +1530,31 @@
     /* ===== Penyesuaian tampilan blok: flat, sudut tegas ===== */
     .card, .stat-card { box-shadow: none; }
     .login-card, .modal { border: 1px solid var(--border); }
-    thead th { background: #eef2f6; border-bottom: 2px solid #dbe2ea; }
-    tbody tr:hover { background: #f8fafc; }
+    thead th { background: var(--border-soft); border-bottom: 2px solid var(--border); }
+    tbody tr:hover { background: var(--bg); }
     .stat-card { border-color: var(--border); }
     .stat-value, .stat-label { font-variant-numeric: tabular-nums; }
     .btn, .nav-item { letter-spacing: .01em; }
-    .badge, .badge-tipe { border: 1px solid rgba(15, 23, 42, .08); }
+    .badge, .badge-tipe { border: 1px solid var(--badge-border); }
     .toast { border-radius: 3px; }
     .type-pill:hover, .kunci-btn:hover { background: var(--border-soft); }
     .type-pill.active:hover, .kunci-btn.active:hover { background: var(--primary-hover); }
     :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
     .field input, .field select, .field textarea, .action-select, .kunci-input, .toolbar .search input { border-width: 1px; }
+
+    /* ===== Penyesuaian khusus tema gelap ===== */
+    html[data-theme="dark"] .modal-backdrop {
+      background: rgba(2, 6, 23, .72);
+    }
+
+    html[data-theme="dark"] .login-card,
+    html[data-theme="dark"] .modal {
+      border-color: var(--border);
+    }
+
+    html[data-theme="dark"] .ui-panel-inline .ui-seg button.active {
+      color: #06281d;
+    }
   </style>
   <link rel="stylesheet" href="/ui-scale.css">
   <script src="/ui-scale.js"></script>
@@ -1583,6 +1677,14 @@
         </button>
       </nav>
       <div class="sidebar-footer">
+        <button class="nav-item" data-view="pengaturan">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="8" cy="8" r="2.4" />
+              <path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1" />
+            </svg></span>
+          Pengaturan
+        </button>
         <div class="sidebar-user"><strong id="guru-email">-</strong>Masuk sebagai guru</div>
         <button class="btn btn-ghost btn-block btn-sm" id="btn-logout">Keluar</button>
       </div>
@@ -1724,6 +1826,13 @@
                     <option value="0">Tidak</option>
                   </select></div>
               </div>
+              <div class="field">
+                <label>Wajib Aplikasi Ujian</label>
+                <select id="ex-wajib-client">
+                  <option value="0">Tidak - boleh lewat browser</option>
+                  <option value="1">Ya - hanya aplikasi Windows/Android</option>
+                </select>
+              </div>
               <button class="btn" id="btn-buat-ujian">Buat Ujian</button>
               <div id="msg-ujian"></div>
             </div>
@@ -1801,6 +1910,7 @@
                       <th>Terjawab</th>
                       <th>Pelanggaran</th>
                       <th>Peringatan</th>
+                      <th>Perangkat</th>
                       <th>Terakhir Aktif</th>
                       <th style="width:1%">Aksi</th>
                     </tr>
@@ -1988,6 +2098,20 @@
             </div>
           </div>
         </section>
+
+        <section class="view" id="view-pengaturan" hidden>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2>Pengaturan Tampilan</h2>
+                <p>Sesuaikan tema, ukuran antarmuka, dan ukuran teks.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="ui-settings-inline"></div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -2064,7 +2188,8 @@
         logs: ['Log Pelanggaran', 'Riwayat pelanggaran per ujian'],
         audit: ['Audit', 'Catatan akses data (UU PDP)'],
         backup: ['Backup', 'Cadangan basis data'],
-        akun: ['Akun', 'Kelola akun guru']
+        akun: ['Akun', 'Kelola akun guru'],
+        pengaturan: ['Pengaturan', 'Tema dan ukuran tampilan']
       };
       function gantiView(view) {
         document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -2366,7 +2491,7 @@
 
     tb.innerHTML = rows.map(r => '<tr>' +
       '<td class="cell-num">' + r.id + '</td>' +
-      '<td><strong>' + esc(r.judul) + '</strong></td>' +
+      '<td><strong>' + esc(r.judul) + '</strong>' + (r.wajib_client ? ' <span class="badge badge-blue" title="Wajib aplikasi ujian">App</span>' : '') + '</td>' +
       '<td>' + esc(r.mapel || '-') + '</td>' +
       '<td class="cell-num">' + r.durasi_menit + ' mnt</td>' +
       '<td class="small cell-nowrap">' + formatLokal(r.mulai) + '<br>' + formatLokal(r.selesai) + '</td>' +
@@ -2436,7 +2561,8 @@
         selesai: $('ex-selesai').value,
         batas_pelanggaran: parseInt($('ex-batas').value, 10),
         acak: $('ex-acak').value === '1',
-        aktif: $('ex-aktif').value === '1'
+        aktif: $('ex-aktif').value === '1',
+        wajib_client: $('ex-wajib-client').value === '1'
       };
       if (!b.judul || !b.mulai || !b.selesai) { $('msg-ujian').innerHTML = '<div class="alert alert-error">Judul, Mulai, dan Selesai wajib.</div>'; return; }
       try {
@@ -2458,7 +2584,10 @@
         '<div class="field-inline"><div class="field"><label>Mulai</label><input id="eu-mulai" type="datetime-local" value="' + toLocal(r.mulai) + '"></div>' +
         '<div class="field"><label>Selesai</label><input id="eu-selesai" type="datetime-local" value="' + toLocal(r.selesai) + '"></div></div>' +
         '<div class="field-inline"><div class="field"><label>Acak</label><select id="eu-acak"><option value="1"' + (r.acak ? ' selected' : '') + '>Ya</option><option value="0"' + (!r.acak ? ' selected' : '') + '>Tidak</option></select></div>' +
-        '<div class="field"><label>Aktif</label><select id="eu-aktif"><option value="1"' + (r.aktif ? ' selected' : '') + '>Ya</option><option value="0"' + (!r.aktif ? ' selected' : '') + '>Tidak</option></select></div></div>',
+        '<div class="field"><label>Aktif</label><select id="eu-aktif"><option value="1"' + (r.aktif ? ' selected' : '') + '>Ya</option><option value="0"' + (!r.aktif ? ' selected' : '') + '>Tidak</option></select></div></div>' +
+        '<div class="field"><label>Wajib Aplikasi Ujian</label><select id="eu-wajib-client">' +
+        '<option value="0"' + (!r.wajib_client ? ' selected' : '') + '>Tidak - boleh lewat browser</option>' +
+        '<option value="1"' + (r.wajib_client ? ' selected' : '') + '>Ya - hanya aplikasi Windows/Android</option></select></div>',
         {
           title: 'Edit Ujian #' + id, large: true, actions: [
             { label: 'Batal', class: 'btn-outline', onClick: closeModal },
@@ -2471,7 +2600,8 @@
                       durasi_menit: parseInt($('eu-durasi').value, 10),
                       batas_pelanggaran: parseInt($('eu-batas').value, 10),
                       mulai: $('eu-mulai').value, selesai: $('eu-selesai').value,
-                      acak: $('eu-acak').value === '1', aktif: $('eu-aktif').value === '1'
+                      acak: $('eu-acak').value === '1', aktif: $('eu-aktif').value === '1',
+                      wajib_client: $('eu-wajib-client').value === '1'
                     })
                   });
                   closeModal(); toast('Berhasil', 'Ujian diperbarui'); await muatUjian();
@@ -2942,7 +3072,7 @@
         } else { try { const logs = await api('/api/guru/exams/' + id + '/logs'); if (logs.length) state.lastMaxLogId = logs[0].id; } catch (_) { } }
         renderMonitor();
         $('monitor-info').textContent = rows.length + ' sesi - diperbarui ' + new Date().toLocaleTimeString('id-ID');
-      } catch (e) { $('tbl-monitor').querySelector('tbody').innerHTML = '<tr><td colspan="10" class="empty">' + esc(e.message) + '</td></tr>'; }
+      } catch (e) { $('tbl-monitor').querySelector('tbody').innerHTML = '<tr><td colspan="11" class="empty">' + esc(e.message) + '</td></tr>'; }
     }
     function renderMonitor() {
       let rows = state.monitorRows || [];
@@ -2950,8 +3080,17 @@
       if (kelas) rows = rows.filter(r => r.kelas === kelas);
       if (status) rows = rows.filter(r => r.status === status);
       const tb = $('tbl-monitor').querySelector('tbody');
-      if (rows.length === 0) { tb.innerHTML = '<tr><td colspan="10" class="empty">Tidak ada sesi yang cocok.</td></tr>'; return; }
+      if (rows.length === 0) { tb.innerHTML = '<tr><td colspan="11" class="empty">Tidak ada sesi yang cocok.</td></tr>'; return; }
       const badge = s => ({ active: 'badge-blue', submitted: 'badge-green', timeout: 'badge-yellow', terminated: 'badge-red' }[s] || 'badge-gray');
+      const perangkat = r => {
+        if (!r.client_platform) return '<span class="badge badge-gray" title="Belum memakai aplikasi ujian">Browser</span>';
+        const nama = r.client_platform === 'windows' ? 'Windows' : 'Android';
+        const trust = r.trust_score == null ? 100 : r.trust_score;
+        const warna = trust >= 80 ? 'badge-green' : trust >= 50 ? 'badge-yellow' : 'badge-red';
+        const offline = (r.status === 'active' && r.client_offline_flag) ? ' <span class="badge badge-red">Offline</span>' : '';
+        return '<span class="badge badge-blue" title="Aplikasi ujian ' + esc(r.client_version || '') + ' - trust ' + trust + '">' + nama + '</span>' +
+          '<span class="badge ' + warna + '" title="Skor kepercayaan">' + trust + '</span>' + offline;
+      };
       tb.innerHTML = rows.map(r => '<tr>' +
         '<td class="cell-num">' + r.id + '</td>' +
         '<td class="cell-num">' + esc(r.nis) + '</td>' +
@@ -2961,6 +3100,7 @@
         '<td class="cell-num">' + r.terjawab + '/' + r.total + '</td>' +
         '<td class="cell-num">' + (r.cheat_count > 0 ? '<strong style="color:var(--danger)">' + r.cheat_count + '</strong>' : '0') + '</td>' +
         '<td class="cell-num">' + r.warn_count + '</td>' +
+        '<td class="small cell-nowrap">' + perangkat(r) + '</td>' +
         '<td class="small cell-nowrap">' + waktuRelatif(r.last_seen) + '</td>' +
         '<td><div class="row-actions"><button class="btn btn-outline btn-xs" data-detail="' + r.id + '">Detail</button>' +
         (r.status === 'active' ? '<button class="btn btn-outline btn-xs" data-reset="' + r.id + '">Reset</button><button class="btn btn-danger-outline btn-xs" data-term="' + r.id + '">Hentikan</button>' : '') +
@@ -2976,7 +3116,9 @@
         let html = '<div class="result-rows">' +
           row2('NIS', s.nis) + row2('Nama', s.nama) + row2('Kelas', s.kelas || '-') + row2('Ujian', s.exam_judul) +
           row2('Status', s.status) + row2('Mulai', formatLokal(s.started_at)) + row2('Terakhir Aktif', formatLokal(s.last_seen)) +
-          row2('IP', s.ip || '-') + row2('Pelanggaran Berat', String(s.cheat_count)) + row2('Peringatan', String(s.warn_count)) + '</div>';
+          row2('IP', s.ip || '-') + row2('Perangkat', s.client_platform ? (s.client_platform + ' ' + (s.client_version || '')) : 'Browser') +
+          row2('Mode Aman', s.client_secure ? 'Aktif' : 'Tidak') + row2('Skor Kepercayaan', String(s.trust_score == null ? 100 : s.trust_score)) +
+          row2('Pelanggaran Berat', String(s.cheat_count)) + row2('Peringatan', String(s.warn_count)) + '</div>';
         if (d.result) {
           html += '<h4 style="margin-top:16px">Hasil</h4><div class="result-rows">' +
             row2('Nilai Akhir', Number(d.result.nilai_akhir).toFixed(2)) + row2('Nilai Awal', Number(d.result.nilai_awal).toFixed(2)) +
@@ -2985,7 +3127,7 @@
         if (d.logs.length > 0) {
           html += '<h4 style="margin-top:16px">Log Pelanggaran Terakhir</h4><div style="max-height:200px;overflow:auto">';
           html += d.logs.map(l => '<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border-soft)">' +
-            '<span class="muted">' + formatLokal(l.created_at) + '</span> - ' + (l.berat ? '<span style="color:var(--danger)">Berat</span>' : 'Ringan') + ' - ' + esc(l.jenis) + '</div>').join('');
+            '<span class="muted">' + formatLokal(l.created_at) + '</span> - ' + (l.berat ? '<span style="color:var(--danger)">Berat</span>' : 'Ringan') + ' - ' + esc(l.jenis) + (l.detail ? ' <span class="muted">(' + esc(l.detail) + ')</span>' : '') + '</div>').join('');
           html += '</div>';
         }
         openModal(html, { title: 'Detail Sesi #' + id, large: true, actions: [{ label: 'Tutup', class: 'btn', onClick: closeModal }] });

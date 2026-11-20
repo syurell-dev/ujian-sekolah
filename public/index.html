@@ -181,6 +181,18 @@
     .question-panel { padding: 14px; }
   }
   .field input, .isian-input, .exam-item, .option, .btn-outline { border-width: 1px; }
+
+  /* ===== Mode aman & watermark ===== */
+  .exam-mode { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 7px; border-radius: 2px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; font-size: calc(10px * var(--text-scale, 1)); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .exam-mode.secure { border-color: #16a34a; background: rgba(22,163,74,.18); color: #86efac; }
+  .exam-mode.warn { border-color: #d97706; background: rgba(217,119,6,.18); color: #fcd34d; }
+  #exam-watermark { position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; display: none; }
+  #exam-watermark.active { display: block; }
+  #exam-watermark .wm-item { position: absolute; transform: rotate(-24deg); font-size: 13px; font-weight: 600; letter-spacing: .04em; color: rgba(15,23,42,.09); white-space: nowrap; user-select: none; -webkit-user-select: none; }
+  html[data-theme="dark"] #exam-watermark .wm-item { color: rgba(226,232,240,.10); }
+  #exam-watermark .wm-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #exam-watermark .wm-center span { transform: rotate(-24deg); font-size: calc(34px * var(--text-scale, 1)); font-weight: 800; letter-spacing: .08em; color: rgba(15,23,42,.05); white-space: nowrap; }
+  html[data-theme="dark"] #exam-watermark .wm-center span { color: rgba(226,232,240,.06); }
 </style>
 <link rel="stylesheet" href="/ui-scale.css">
 <script src="/ui-scale.js"></script>
@@ -207,6 +219,7 @@
     </div>
     <button id="btn-login" class="btn">Masuk</button>
     <div id="login-msg"></div>
+    <p class="muted" style="margin:14px 0 0;text-align:center">Dianjurkan memakai <a href="/aplikasi" style="color:var(--primary);font-weight:600">Aplikasi Ujian</a> saat mengerjakan ujian.</p>
   </div>
 </div>
 
@@ -231,6 +244,7 @@
     <div>
       <div class="exam-label">Sedang Dikerjakan</div>
       <div class="exam-title" id="exam-title"></div>
+      <div class="exam-mode" id="exam-mode">Mode Browser</div>
     </div>
     <div class="exam-stats">
       <div class="stat" title="Jumlah soal terjawab">
@@ -289,6 +303,8 @@
   </div>
 </section>
 
+<div id="exam-watermark" aria-hidden="true"></div>
+
 <div id="result-view" class="page-wrap" hidden>
   <div class="brand">
     <div class="brand-logo">
@@ -344,12 +360,115 @@
     totalQuestions: 0, currentQuestion: 1, currentQuestionId: null,
     currentTipe: 'pg4',
     cache: {}, mapData: [],
-    heartbeat: null, timerTick: null, lastSisaDetik: 0,
+    heartbeat: null, clientHeartbeat: null, timerTick: null, lastSisaDetik: 0,
     cheatCount: 0, warnCount: 0, batasPelanggaran: 5,
     modalOpen: false, ignoreFullscreenExitUntil: 0,
-    isianSaveTimer: null
+    isianSaveTimer: null,
+    client: null, serverSkewMs: 0, watermarkTimer: null,
+    browserMonitorChecked: false
   };
   const $ = (id) => document.getElementById(id);
+
+  /* ===== Deteksi aplikasi ujian resmi (Windows/Android) ===== */
+  function detectExamClient() {
+    try {
+      const e = window.examClient;
+      if (e && e.platform && typeof e.sign === 'function') {
+        return {
+          platform: String(e.platform), version: String(e.version || '0'),
+          clientId: String(e.clientId || ''), adapter: e
+        };
+      }
+      const a = window.ExamNative;
+      if (a && typeof a.getPlatform === 'function' && typeof a.sign === 'function') {
+        return {
+          platform: String(a.getPlatform()), version: String(a.getVersion() || '0'),
+          clientId: String(a.getId() || ''),
+          adapter: {
+            sign: (p) => Promise.resolve(a.sign(p)),
+            state: () => { try { return JSON.parse(a.getState()); } catch (_) { return {}; } },
+            startKiosk: () => { try { if (typeof a.startKiosk === 'function') a.startKiosk(); } catch (_) {} }
+          }
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+  state.client = detectExamClient();
+
+  async function buatBuktiKlien() {
+    if (!state.client) return null;
+    const d = await api('/api/client/challenge');
+    if (d && d.server_time) state.serverSkewMs = d.server_time - Date.now();
+    const base = 'client|' + d.challenge + '|' + state.client.clientId + '|' + state.client.platform + '|' + state.client.version;
+    const signature = await state.client.adapter.sign(base);
+    return {
+      id: state.client.clientId, platform: state.client.platform,
+      version: state.client.version, challenge: d.challenge, signature: signature
+    };
+  }
+
+  function aturModeUI() {
+    const el = $('exam-mode');
+    if (!el) return;
+    if (state.client) {
+      const nama = state.client.platform === 'windows' ? 'Windows' : 'Android';
+      el.textContent = 'Mode Aman · ' + nama;
+      el.classList.add('secure');
+      el.classList.remove('warn');
+    } else {
+      el.textContent = 'Mode Browser';
+      el.classList.add('warn');
+      el.classList.remove('secure');
+    }
+  }
+
+  async function bacaStatusKlien() {
+    if (!state.client) return {};
+    try {
+      const st = await Promise.resolve(state.client.adapter.state());
+      return (st && typeof st === 'object') ? st : {};
+    } catch (_) { return {}; }
+  }
+
+  function perbaruiWatermark() {
+    const box = $('exam-watermark');
+    if (!box || !state.student) return;
+    const nama = state.student.nama || '';
+    const nis = state.student.nis || '';
+    const jam = new Date(Date.now() + state.serverSkewMs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const teks = nis + ' · ' + nama + ' · ' + jam;
+    box.innerHTML = '';
+    const tengah = document.createElement('div');
+    tengah.className = 'wm-center';
+    const span = document.createElement('span');
+    span.textContent = teks;
+    tengah.appendChild(span);
+    box.appendChild(tengah);
+    const posisi = [
+      [4, 8], [52, 6], [22, 26], [68, 24], [8, 46], [46, 44],
+      [72, 62], [18, 68], [50, 82], [80, 86], [34, 92], [2, 88]
+    ];
+    for (const [x, y] of posisi) {
+      const el = document.createElement('div');
+      el.className = 'wm-item';
+      el.style.left = x + '%';
+      el.style.top = y + '%';
+      el.textContent = teks;
+      box.appendChild(el);
+    }
+  }
+
+  function tampilkanWatermark(aktif) {
+    const box = $('exam-watermark');
+    if (!box) return;
+    box.classList.toggle('active', !!aktif);
+    if (state.watermarkTimer) { clearInterval(state.watermarkTimer); state.watermarkTimer = null; }
+    if (aktif) {
+      perbaruiWatermark();
+      state.watermarkTimer = setInterval(perbaruiWatermark, 30000);
+    }
+  }
   const api = (path, opts) => {
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opts && opts.headers);
     if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
@@ -405,6 +524,7 @@
     return 'fb' + h1.toString(16) + h2.toString(16);
   }
   async function getDeviceId() {
+    if (state.client && state.client.clientId) return state.client.clientId;
     let stored = localStorage.getItem('device_id');
     if (stored) return stored;
     const raw = [navigator.userAgent, screen.width, screen.height, navigator.language, (new Date()).getTimezoneOffset(), Math.random().toString(36), Date.now()].join('|');
@@ -507,6 +627,10 @@
     document.addEventListener('keydown', (e) => {
       if (!state.session || state.session.status !== 'active') return;
       const k = e.key;
+      if (k === 'PrintScreen' || k === 'Print') {
+        e.preventDefault(); reportCheat('percobaan-screenshot', true, k);
+        return;
+      }
       if (k === 'F12' || (e.ctrlKey && e.shiftKey && (k === 'I' || k === 'J' || k === 'C')) || (e.ctrlKey && (k === 'U' || k === 'P' || k === 'S'))) {
         e.preventDefault(); reportCheat('pintasan-terlarang', false, k);
       }
@@ -533,6 +657,20 @@
     window.addEventListener('orientationchange', () => reportCheat('orientation', true, ''));
     document.addEventListener('touchstart', (e) => { if (e.touches && e.touches.length >= 3) reportCheat('multi-touch', true, e.touches.length + ' jari'); }, { passive: true });
     document.addEventListener('enterpictureinpicture', () => reportCheat('pip', true, ''), true);
+    document.addEventListener('beforeprint', () => reportCheat('print', true, ''));
+    window.addEventListener('offline', () => reportCheat('koneksi-hilang', false, ''));
+    window.addEventListener('blur', () => {
+      if (state.client && state.session && state.session.status === 'active') setTimeout(kirimHeartbeatKlien, 250);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (state.client && state.session && state.session.status === 'active') setTimeout(kirimHeartbeatKlien, 250);
+    });
+    setInterval(() => {
+      if (state.client || !state.session || state.session.status !== 'active') return;
+      try {
+        if (window.screen && window.screen.isExtended === true) reportCheat('multi-monitor', true, 'layar tambahan terdeteksi');
+      } catch (_) {}
+    }, 15000);
   }
   $('btn-login').addEventListener('click', async () => {
     $('login-msg').innerHTML = '';
@@ -552,7 +690,9 @@
     state.token = null; state.student = null; state.session = null;
     $('user-info').textContent = '';
     if (state.heartbeat) { clearInterval(state.heartbeat); state.heartbeat = null; }
+    if (state.clientHeartbeat) { clearInterval(state.clientHeartbeat); state.clientHeartbeat = null; }
     if (state.timerTick) { clearInterval(state.timerTick); state.timerTick = null; }
+    tampilkanWatermark(false);
     tampilkan('login-view');
   });
   async function muatUjian() {
@@ -564,8 +704,9 @@
       const div = document.createElement('div');
       div.className = 'exam-item';
       const statusBadge = r.session_status === 'active' ? '<span class="badge badge-blue">Sedang Berjalan</span>' : (r.session_status ? '<span class="badge">Selesai</span>' : '');
+      const wajibBadge = r.wajib_client ? '<span class="badge badge-blue">Wajib Aplikasi Ujian</span>' : '';
       const btnLabel = r.session_status === 'active' ? 'Lanjutkan Ujian' : (r.session_status ? 'Lihat Hasil' : 'Mulai Ujian');
-      div.innerHTML = '<h3>' + escapeHTML(r.judul) + ' ' + statusBadge + '</h3>' +
+      div.innerHTML = '<h3>' + escapeHTML(r.judul) + ' ' + statusBadge + wajibBadge + '</h3>' +
         '<div class="meta">' + escapeHTML(r.mapel || '-') + ' - ' + r.durasi_menit + ' menit<br>' +
         formatLokal(r.mulai) + ' - ' + formatLokal(r.selesai) + '</div>' +
         '<button class="btn">' + btnLabel + '</button>';
@@ -579,13 +720,27 @@
       state.session = { id: r.session_id }; return muatHasil();
     }
     if (!state.deviceId) state.deviceId = await getDeviceId();
+    if (r.wajib_client && !state.client) {
+      alert('Ujian ini wajib dikerjakan memakai Aplikasi Ujian resmi (Windows/Android). Silakan buka aplikasi lalu masuk kembali.');
+      return;
+    }
     try {
-      const d = await api('/api/exams/' + r.id + '/start', { method: 'POST', body: JSON.stringify({ device_id: state.deviceId }) });
+      const payload = { device_id: state.deviceId };
+      if (state.client) {
+        try { payload.client = await buatBuktiKlien(); }
+        catch (e) { alert('Gagal memverifikasi aplikasi ujian: ' + e.message); return; }
+      }
+      const d = await api('/api/exams/' + r.id + '/start', { method: 'POST', body: JSON.stringify(payload) });
       state.session = { id: d.session_id, exam_id: r.id, status: 'active' };
       state.exam = r; state.currentQuestion = 1; state.cache = {};
       state.batasPelanggaran = r.batas_pelanggaran;
       $('exam-title').textContent = r.judul + ' (' + (r.mapel || '') + ')';
       tampilkan('exam-view');
+      aturModeUI();
+      tampilkanWatermark(true);
+      if (state.client && state.client.adapter && typeof state.client.adapter.startKiosk === 'function') {
+        try { state.client.adapter.startKiosk(); } catch (_) {}
+      }
       masukLayarPenuh();
       await muatStatus();
       await muatMap();
@@ -866,7 +1021,9 @@
   $('modal-confirm').addEventListener('click', (e) => { if (e.target === $('modal-confirm')) closeModal('modal-confirm'); });
   async function muatHasil() {
     if (state.heartbeat) { clearInterval(state.heartbeat); state.heartbeat = null; }
+    if (state.clientHeartbeat) { clearInterval(state.clientHeartbeat); state.clientHeartbeat = null; }
     if (state.timerTick) { clearInterval(state.timerTick); state.timerTick = null; }
+    tampilkanWatermark(false);
     try {
       const r = await api('/api/sessions/' + state.session.id + '/result');
       $('result-score').textContent = r.nilai_akhir.toFixed(1);
@@ -881,11 +1038,64 @@
     tampilkan('result-view');
   }
   $('btn-result-close').addEventListener('click', () => { state.session = null; muatUjian(); });
+  async function kirimHeartbeatKlien() {
+    if (!state.client || !state.session || state.session.status !== 'active') return;
+    try {
+      const st = await bacaStatusKlien();
+      const ts = Date.now() + state.serverSkewMs;
+      const base = 'heartbeat|' + state.session.id + '|' + state.client.clientId + '|' + ts;
+      const signature = await state.client.adapter.sign(base);
+      const flags = {
+        fullscreen: !!(document.fullscreenElement || st.fullscreen),
+        focused: (st.focused != null) ? !!st.focused : document.hasFocus(),
+        kiosk: (st.kiosk != null) ? !!st.kiosk : null,
+        lock_task: (st.lock_task != null) ? !!st.lock_task : null,
+        screen_protected: (st.screen_protected != null) ? !!st.screen_protected : null,
+        multi_monitor: !!st.multi_monitor,
+        devtools: !!st.devtools,
+        remote_session: !!st.remote_session,
+        vm: !!st.vm,
+        rooted: !!st.rooted,
+        emulator: !!st.emulator,
+        multi_window: !!st.multi_window,
+        usb_debugging: !!st.usb_debugging,
+        screen_recording: !!st.screen_recording,
+        screenshot_attempt: !!st.screenshot_attempt,
+        suspicious: Array.isArray(st.suspicious) ? st.suspicious : [],
+        offline: navigator.onLine === false,
+        clock_skew: Math.round(-state.serverSkewMs / 1000)
+      };
+      const d = await api('/api/sessions/' + state.session.id + '/heartbeat', {
+        method: 'POST',
+        body: JSON.stringify({ client_id: state.client.clientId, ts, signature, version: state.client.version, flags })
+      });
+      if (d.server_time) state.serverSkewMs = d.server_time - Date.now();
+      state.cheatCount = d.cheat_count; state.warnCount = d.warn_count;
+      updateCheatUI();
+      if (d.status && d.status !== 'active') {
+        state.session.status = d.status;
+        if (state.clientHeartbeat) { clearInterval(state.clientHeartbeat); state.clientHeartbeat = null; }
+        if (state.heartbeat) { clearInterval(state.heartbeat); state.heartbeat = null; }
+        showViolation(d.status === 'timeout' ? 'Waktu ujian habis.' : 'Sesi dihentikan oleh pengawas/server.', 0, true);
+      }
+    } catch (e) {
+      if (e.status === 401 || e.status === 409) {
+        if (state.clientHeartbeat) { clearInterval(state.clientHeartbeat); state.clientHeartbeat = null; }
+        showViolation('Sesi tidak valid: ' + e.message, 0, true);
+      }
+    }
+  }
+
   function mulaiHeartbeat() {
     if (state.heartbeat) clearInterval(state.heartbeat);
+    if (state.clientHeartbeat) clearInterval(state.clientHeartbeat);
     state.heartbeat = setInterval(async () => {
       try { const d = await muatStatus(); if (!d) return; state.lastSisaDetik = d.sisa_detik; } catch (_) {}
     }, 5000);
+    if (state.client) {
+      kirimHeartbeatKlien();
+      state.clientHeartbeat = setInterval(kirimHeartbeatKlien, 4000);
+    }
   }
   function mulaiTimer() {
     if (state.timerTick) clearInterval(state.timerTick);

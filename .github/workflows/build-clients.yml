@@ -1,0 +1,104 @@
+name: Build Aplikasi Ujian (Windows & Android)
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'Alamat server ujian, contoh http://192.168.1.10:3000'
+        required: false
+        default: 'http://192.168.1.10:3000'
+  push:
+    tags:
+      - 'client-v*'
+
+permissions:
+  contents: read
+
+env:
+  EXAM_SERVER_URL: ${{ github.event.inputs.server_url || 'http://192.168.1.10:3000' }}
+
+jobs:
+  windows:
+    name: Windows EXE
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: client/windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Terapkan alamat server
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('config.json','utf8'));c.serverUrl=process.env.EXAM_SERVER_URL;fs.writeFileSync('config.json',JSON.stringify(c,null,2)+'\n')"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build installer dan portable
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ujian-windows
+          path: client/windows/dist/*.exe
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: client/android
+        run: npm ci
+
+      - name: Terapkan alamat server
+        working-directory: client/android
+        run: node scripts/set-server.js "$EXAM_SERVER_URL"
+
+      - name: Sync Capacitor
+        working-directory: client/android
+        run: npx cap sync android
+
+      - name: Build APK (debug, siap uji)
+        working-directory: client/android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Siapkan nama berkas unduhan
+        working-directory: client/android/android
+        run: cp app/build/outputs/apk/debug/app-debug.apk Aplikasi-Ujian-1.0.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ujian-android
+          path: client/android/android/Aplikasi-Ujian-1.0.0.apk
+          if-no-files-found: error

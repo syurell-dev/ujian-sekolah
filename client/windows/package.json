@@ -1,0 +1,47 @@
+{
+  "name": "ujian-exam-client",
+  "version": "1.0.0",
+  "description": "Aplikasi Ujian resmi untuk Windows (mode kiosk)",
+  "private": true,
+  "main": "main.js",
+  "author": "Sekolah",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "id.sekolah.ujian.client",
+    "productName": "Aplikasi Ujian",
+    "artifactName": "Aplikasi-Ujian-${version}-${arch}.${ext}",
+    "portable": {
+      "artifactName": "Aplikasi-Ujian-Portable-${version}.${ext}"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.json"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Aplikasi-Ujian-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Aplikasi Ujian"
+    }
+  }
+}

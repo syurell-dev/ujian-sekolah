@@ -1,10 +1,20 @@
 # Dependencies
 node_modules/
 
+# Build klien
+client/windows/dist/
+client/android/android/.gradle/
+client/android/android/build/
+client/android/android/app/build/
+client/android/android/local.properties
+*.keystore
+*.jks
+
 # Database & Uploads (SANGAT PENTING)
 data/
 backups/
 uploads/
+downloads/
 *.db
 *.db-shm
 *.db-wal
@@ -19,3 +29,4 @@ uploads/
 Thumbs.db
 .vscode/
 *.log
+data/ujian.db-wal

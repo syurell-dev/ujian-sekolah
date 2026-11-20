@@ -21,8 +21,9 @@ const DB_PATH = path.join(DATA_DIR, 'ujian.db');
 const SECRET_PATH = path.join(DATA_DIR, 'secret.txt');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 
-for (const dir of [DATA_DIR, BACKUP_DIR, UPLOADS_DIR]) {
+for (const dir of [DATA_DIR, BACKUP_DIR, UPLOADS_DIR, DOWNLOADS_DIR]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -232,6 +233,25 @@ CREATE INDEX IF NOT EXISTS idx_cheat_logs_session ON cheat_logs(session_id);
   }
 })();
 
+(function migrateExamClient() {
+  const examCols = db.prepare('PRAGMA table_info(exams)').all().map(c => c.name);
+  if (!examCols.includes('wajib_client')) {
+    db.exec('ALTER TABLE exams ADD COLUMN wajib_client INTEGER DEFAULT 0');
+    console.log('[MIGRASI] Kolom wajib_client ditambahkan ke exams.');
+  }
+  const sesCols = db.prepare('PRAGMA table_info(sessions)').all().map(c => c.name);
+  const add = (name, def) => { if (!sesCols.includes(name)) db.exec('ALTER TABLE sessions ADD COLUMN ' + name + ' ' + def); };
+  add('client_id', 'TEXT');
+  add('client_platform', 'TEXT');
+  add('client_version', 'TEXT');
+  add('client_secure', 'INTEGER DEFAULT 0');
+  add('client_flags', 'TEXT');
+  add('last_client_seen', 'TEXT');
+  add('client_offline_flag', 'INTEGER DEFAULT 0');
+  add('trust_score', 'INTEGER DEFAULT 100');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_client ON sessions(client_id)');
+})();
+
 (function seedDemoStudent() {
   const nis = 'DEMO';
   const existing = db.prepare('SELECT id FROM students WHERE nis = ?').get(nis);
@@ -280,6 +300,7 @@ app.use(express.static(PUBLIC_DIR, {
   }
 }));
 app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/downloads', express.static(DOWNLOADS_DIR));
 app.use('/katex', express.static(path.join(__dirname, 'node_modules', 'katex', 'dist')));
 
 const userReqMap = new Map();
@@ -347,6 +368,172 @@ function logAccess(actor, action, target) {
     db.prepare('INSERT INTO access_log (actor_type, actor_id, action, target) VALUES (?, ?, ?, ?)')
       .run(actor ? actor.role : 'system', actor ? actor.id : null, action, target || '');
   } catch (_) {}
+}
+
+// ============================================================
+// KLIEN UJIAN RESMI (Windows / Android)
+// ============================================================
+const CLIENT_SECRET = process.env.EXAM_CLIENT_SECRET || 'ujian-exam-client-v1';
+const CLIENT_CHALLENGE_TTL_MS = 3 * 60 * 1000;
+const CLIENT_OFFLINE_MS = 45 * 1000;
+const violationCooldown = new Map();
+
+function clientSig(base) {
+  return crypto.createHmac('sha256', CLIENT_SECRET).update(String(base)).digest('hex');
+}
+
+function safeEqualHex(a, b) {
+  const x = Buffer.from(String(a || ''), 'utf8');
+  const y = Buffer.from(String(b || ''), 'utf8');
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+function issueClientChallenge() {
+  const ts = Date.now();
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const body = ts + '.' + nonce;
+  return body + '.' + clientSig('challenge|' + body);
+}
+
+function verifyClientChallenge(challenge) {
+  const parts = String(challenge || '').split('.');
+  if (parts.length !== 3) return false;
+  const [ts, nonce, mac] = parts;
+  const body = ts + '.' + nonce;
+  if (!safeEqualHex(clientSig('challenge|' + body), mac)) return false;
+  const waktu = parseInt(ts, 10);
+  if (!Number.isFinite(waktu)) return false;
+  return Math.abs(Date.now() - waktu) <= CLIENT_CHALLENGE_TTL_MS;
+}
+
+function verifyClientProof(c) {
+  if (!c || typeof c !== 'object') return { ok: false, error: 'Data klien tidak ada.' };
+  const id = String(c.id || '').trim().slice(0, 128);
+  const platform = String(c.platform || '').trim().toLowerCase().slice(0, 20);
+  const version = String(c.version || '').trim().slice(0, 32);
+  const challenge = String(c.challenge || '');
+  const signature = String(c.signature || '').toLowerCase();
+  if (!id || !/^[A-Za-z0-9_-]{8,128}$/.test(id)) return { ok: false, error: 'ID klien tidak valid.' };
+  if (platform !== 'windows' && platform !== 'android') return { ok: false, error: 'Platform klien tidak dikenal.' };
+  if (!version) return { ok: false, error: 'Versi klien tidak ada.' };
+  if (!verifyClientChallenge(challenge)) return { ok: false, error: 'Tantangan klien tidak valid atau kedaluwarsa.' };
+  const expected = clientSig('client|' + challenge + '|' + id + '|' + platform + '|' + version);
+  if (!safeEqualHex(expected, signature)) return { ok: false, error: 'Tanda tangan klien tidak valid.' };
+  return { ok: true, client: { id, platform, version, secure: 1 } };
+}
+
+function verifyHeartbeatProof(session, body) {
+  const clientId = String(body.client_id || '').trim();
+  const ts = parseInt(body.ts, 10);
+  const signature = String(body.signature || '').toLowerCase();
+  if (!clientId || !Number.isFinite(ts) || !signature) return { ok: false, error: 'Bukti heartbeat tidak lengkap.' };
+  if (Math.abs(Date.now() - ts) > 2 * 60 * 1000) return { ok: false, error: 'Heartbeat kedaluwarsa.' };
+  if (clientId !== session.client_id) return { ok: false, error: 'Heartbeat berasal dari klien lain.' };
+  const expected = clientSig('heartbeat|' + session.id + '|' + clientId + '|' + ts);
+  if (!safeEqualHex(expected, signature)) return { ok: false, error: 'Tanda tangan heartbeat tidak valid.' };
+  return { ok: true };
+}
+
+/**
+ * Catat pelanggaran dari sisi server (otoritatif). Cooldown mencegah banjir log
+ * ketika klien mengirim kondisi yang sama berulang-ulang.
+ */
+function addSessionViolation(sessionId, jenis, berat, detail, cooldownMs) {
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+  if (!session || session.status !== 'active') return { skipped: true };
+  const now = Date.now();
+  const key = sessionId + ':' + jenis;
+  const jeda = cooldownMs == null ? 20000 : cooldownMs;
+  if (jeda > 0) {
+    const last = violationCooldown.get(key) || 0;
+    if (now - last < jeda) return { skipped: true };
+    violationCooldown.set(key, now);
+  }
+  db.prepare('INSERT INTO cheat_logs (session_id, jenis, berat, detail) VALUES (?, ?, ?, ?)')
+    .run(session.id, String(jenis || 'unknown').slice(0, 60), berat ? 1 : 0, String(detail || '').slice(0, 200));
+  if (berat) db.prepare('UPDATE sessions SET cheat_count = cheat_count + 1, trust_score = MAX(0, trust_score - 5) WHERE id = ?').run(session.id);
+  else db.prepare('UPDATE sessions SET warn_count = warn_count + 1, trust_score = MAX(0, trust_score - 1) WHERE id = ?').run(session.id);
+  const upd = db.prepare('SELECT cheat_count, warn_count, trust_score, status FROM sessions WHERE id = ?').get(session.id);
+  let terminated = false;
+  if (berat && upd.status === 'active') {
+    const exam = db.prepare('SELECT batas_pelanggaran FROM exams WHERE id = ?').get(session.exam_id);
+    if (exam && upd.cheat_count >= exam.batas_pelanggaran) {
+      finalizeSession(session.id, 'terminated');
+      terminated = true;
+    }
+  }
+  if (terminated) violationCooldown.delete(key);
+  return { skipped: false, cheat_count: upd.cheat_count, warn_count: upd.warn_count, trust_score: upd.trust_score, terminated };
+}
+
+/**
+ * Menolak akses ke sesi ujian yang mewajibkan aplikasi resmi tetapi sesinya
+ * tidak terikat ke klien tepercaya (misalnya dibuka ulang lewat browser).
+ */
+function clientGuard(session) {
+  if (!session) return null;
+  const exam = db.prepare('SELECT wajib_client FROM exams WHERE id = ?').get(session.exam_id);
+  if (exam && exam.wajib_client && !session.client_secure) {
+    return 'Ujian ini wajib dikerjakan memakai Aplikasi Ujian resmi. Buka aplikasi lalu lanjutkan sesi dari sana.';
+  }
+  return null;
+}
+
+/**
+ * Menerjemahkan flag dari klien menjadi pelanggaran. Server yang memutuskan,
+ * sehingga klien tidak bisa "diam-diam" tidak melaporkan kondisi berbahaya.
+ */
+function evaluateClientFlags(session, flags) {
+  if (!flags || typeof flags !== 'object') return [];
+  const hasil = [];
+  const push = (jenis, berat, detail) => hasil.push({ jenis, berat, detail });
+  const p = session.client_platform || 'unknown';
+
+  if (flags.fullscreen === false) push('keluar-layar-penuh', 1, p);
+  if (flags.focused === false) push('kehilangan-fokus', 1, p);
+  if ((p === 'windows' ? flags.kiosk : flags.lock_task) === false) push('bukan-mode-kiosk', 1, p);
+  if (flags.screen_protected === false) push('proteksi-layar-nonaktif', 0, p);
+  if (flags.multi_monitor === true) push('multi-monitor', 1, 'lebih dari satu layar');
+  if (flags.remote_session === true) push('remote-desktop', 1, p);
+  if (flags.vm === true) push('virtual-machine', 1, p);
+  if (flags.devtools === true) push('devtools-terbuka', 1, p);
+  if (flags.screenshot_attempt === true) push('percobaan-screenshot', 1, p);
+  if (flags.rooted === true) push('root-terdeteksi', 1, p);
+  if (flags.emulator === true) push('emulator', 1, p);
+  if (flags.multi_window === true) push('multi-jendela', 1, p);
+  if (flags.screen_recording === true) push('perekaman-layar', 1, p);
+  if (flags.usb_debugging === true) push('usb-debugging', 0, p);
+  if (typeof flags.clock_skew === 'number' && Math.abs(flags.clock_skew) > 60) {
+    push('jam-tidak-sinkron', 1, Math.round(flags.clock_skew) + ' detik');
+  }
+  if (flags.offline === true) push('koneksi-hilang', 0, p);
+  if (Array.isArray(flags.suspicious)) {
+    const unik = Array.from(new Set(flags.suspicious.map(s => String(s).slice(0, 40)).filter(Boolean))).slice(0, 8);
+    for (const nama of unik) push('proses-mencurigakan', 1, nama);
+  }
+  return hasil;
+}
+
+function recordClientViolations(session, flags) {
+  const daftar = evaluateClientFlags(session, flags);
+  let cheatCount = session.cheat_count;
+  let warnCount = session.warn_count;
+  let trust = session.trust_score == null ? 100 : session.trust_score;
+  let terminated = false;
+  for (const v of daftar) {
+    const cooldown = v.jenis === 'bukan-mode-kiosk' ? 300000
+      : v.jenis === 'proses-mencurigakan' ? 90000
+        : v.jenis === 'proteksi-layar-nonaktif' ? 300000
+          : 20000;
+    const r = addSessionViolation(session.id, v.jenis, v.berat, v.detail, cooldown);
+    if (r && !r.skipped) {
+      cheatCount = r.cheat_count;
+      warnCount = r.warn_count;
+      trust = r.trust_score;
+      if (r.terminated) terminated = true;
+    }
+  }
+  return { cheat_count: cheatCount, warn_count: warnCount, trust_score: trust, terminated };
 }
 
 const sanitizeOptions = {
@@ -444,9 +631,18 @@ app.post('/api/login', (req, res) => {
   res.json({ token, student: { id: student.id, nis: student.nis, nama: student.nama, kelas: student.kelas }, device_id_client: device_id || null });
 });
 
+app.get('/api/client/challenge', authStudent, (req, res) => {
+  res.json({
+    challenge: issueClientChallenge(),
+    ttl_ms: CLIENT_CHALLENGE_TTL_MS,
+    platforms: ['windows', 'android'],
+    server_time: Date.now()
+  });
+});
+
 app.get('/api/exams', authStudent, (req, res) => {
   const now = nowISO();
-  const rows = db.prepare(`SELECT id, judul, mapel, durasi_menit, mulai, selesai, acak, batas_pelanggaran FROM exams WHERE aktif = 1 AND mulai <= ? AND selesai >= ? ORDER BY mulai ASC`).all(now, now);
+  const rows = db.prepare(`SELECT id, judul, mapel, durasi_menit, mulai, selesai, acak, batas_pelanggaran, wajib_client FROM exams WHERE aktif = 1 AND mulai <= ? AND selesai >= ? ORDER BY mulai ASC`).all(now, now);
   const stu = db.prepare('SELECT is_demo FROM students WHERE id = ?').get(req.user.id);
   if (stu && stu.is_demo === 1) {
     return res.json(rows.map(r => Object.assign({}, r, { session_id: null, session_status: null })));
@@ -467,8 +663,20 @@ app.post('/api/exams/:id/start', authStudent, (req, res) => {
   if (now < new Date(exam.mulai).getTime()) return res.status(403).json({ error: 'Ujian belum dimulai.' });
   if (now > new Date(exam.selesai).getTime()) return res.status(403).json({ error: 'Ujian sudah berakhir.' });
 
-  const { device_id } = req.body || {};
+  const { device_id, client } = req.body || {};
   if (!device_id) return res.status(400).json({ error: 'device_id wajib.' });
+
+  let clientInfo = null;
+  if (client) {
+    const proof = verifyClientProof(client);
+    if (!proof.ok) return res.status(403).json({ error: 'Aplikasi ujian tidak valid: ' + proof.error });
+    clientInfo = proof.client;
+  }
+  if (exam.wajib_client && !clientInfo) {
+    return res.status(403).json({
+      error: 'Ujian ini wajib dikerjakan memakai Aplikasi Ujian resmi (Windows/Android). Buka aplikasi lalu masuk kembali.'
+    });
+  }
 
   const stuDemo = db.prepare('SELECT is_demo FROM students WHERE id = ?').get(req.user.id);
   if (stuDemo && stuDemo.is_demo === 1) {
@@ -488,18 +696,32 @@ app.post('/api/exams/:id/start', authStudent, (req, res) => {
   const existing = db.prepare('SELECT * FROM sessions WHERE exam_id = ? AND student_id = ?').get(examId, req.user.id);
   if (existing) {
     if (existing.device_id !== device_id) return res.status(409).json({ error: 'Anda sudah memulai ujian dari perangkat lain.' });
+    if (clientInfo && existing.client_id && existing.client_id !== clientInfo.id) {
+      return res.status(409).json({ error: 'Sesi ini terikat ke instalasi aplikasi lain. Hubungi pengawas.' });
+    }
     if (existing.status !== 'active') return res.status(409).json({ error: 'Sesi sudah tidak aktif: ' + existing.status });
-    return res.json({ session_id: existing.id, resumed: true });
+    if (clientInfo) {
+      db.prepare(`UPDATE sessions SET client_id = ?, client_platform = ?, client_version = ?, client_secure = 1,
+        client_flags = '{}', last_client_seen = ?, client_offline_flag = 0 WHERE id = ?`)
+        .run(clientInfo.id, clientInfo.platform, clientInfo.version, nowISO(), existing.id);
+    }
+    return res.json({ session_id: existing.id, resumed: true, client_secure: !!clientInfo });
   }
-  const info = db.prepare('INSERT INTO sessions (exam_id, student_id, device_id, ip, user_agent) VALUES (?, ?, ?, ?, ?)')
-    .run(examId, req.user.id, String(device_id).slice(0, 128), req.ip || '', (req.get('user-agent') || '').slice(0, 300));
-  logAccess(req.user, 'start_exam', 'exam=' + examId + ' session=' + info.lastInsertRowid);
-  res.json({ session_id: info.lastInsertRowid, resumed: false });
+  const info = db.prepare(`INSERT INTO sessions
+      (exam_id, student_id, device_id, ip, user_agent, client_id, client_platform, client_version, client_secure, client_flags, last_client_seen)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?)`)
+    .run(examId, req.user.id, String(device_id).slice(0, 128), req.ip || '', (req.get('user-agent') || '').slice(0, 300),
+      clientInfo ? clientInfo.id : null, clientInfo ? clientInfo.platform : null,
+      clientInfo ? clientInfo.version : null, clientInfo ? 1 : 0, nowISO());
+  logAccess(req.user, 'start_exam', 'exam=' + examId + ' session=' + info.lastInsertRowid + (clientInfo ? ' client=' + clientInfo.platform : ' web'));
+  res.json({ session_id: info.lastInsertRowid, resumed: false, client_secure: !!clientInfo });
 });
 
 app.get('/api/sessions/:id/status', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(session.exam_id);
   const total = db.prepare('SELECT COUNT(*) c FROM questions WHERE exam_id = ?').get(session.exam_id).c;
   const answered = db.prepare('SELECT COUNT(*) c FROM answers WHERE session_id = ?').get(session.id).c;
@@ -515,13 +737,58 @@ app.get('/api/sessions/:id/status', authStudent, (req, res) => {
   res.json({
     status: session.status, sisa_detik: remaining, terjawab: answered, total,
     cheat_count: session.cheat_count, warn_count: session.warn_count,
-    batas_pelanggaran: exam.batas_pelanggaran
+    batas_pelanggaran: exam.batas_pelanggaran,
+    wajib_client: exam.wajib_client,
+    client_secure: session.client_secure,
+    client_platform: session.client_platform || null,
+    trust_score: session.trust_score == null ? 100 : session.trust_score
+  });
+});
+
+app.post('/api/sessions/:id/heartbeat', authStudent, (req, res) => {
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
+  if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  if (session.status !== 'active') return res.status(409).json({ error: 'Sesi tidak aktif.' });
+  if (!session.client_id) return res.status(409).json({ error: 'Sesi ini bukan sesi aplikasi ujian.' });
+  const body = req.body || {};
+  const proof = verifyHeartbeatProof(session, body);
+  if (!proof.ok) {
+    addSessionViolation(session.id, 'heartbeat-tidak-valid', 1, proof.error, 30000);
+    return res.status(401).json({ error: proof.error });
+  }
+  const flags = (body.flags && typeof body.flags === 'object') ? body.flags : {};
+  db.prepare(`UPDATE sessions SET last_seen = ?, last_client_seen = ?, client_offline_flag = 0,
+      client_flags = ?, client_version = COALESCE(NULLIF(?, ''), client_version) WHERE id = ?`)
+    .run(nowISO(), nowISO(), JSON.stringify(flags).slice(0, 4000), String(body.version || '').slice(0, 32), session.id);
+
+  const segar = db.prepare('SELECT * FROM sessions WHERE id = ?').get(session.id);
+  const hasil = recordClientViolations(segar, flags);
+
+  const exam = db.prepare('SELECT durasi_menit, selesai, batas_pelanggaran FROM exams WHERE id = ?').get(session.exam_id);
+  let sisa = 0;
+  if (exam) {
+    const started = new Date(segar.started_at).getTime();
+    const batas = Math.min(started + exam.durasi_menit * 60 * 1000, new Date(exam.selesai).getTime());
+    sisa = Math.max(0, Math.floor((batas - Date.now()) / 1000));
+    if (sisa === 0) {
+      finalizeSession(segar.id, 'timeout');
+      return res.json({ ok: true, status: 'timeout', terminated: false, sisa_detik: 0, cheat_count: hasil.cheat_count, warn_count: hasil.warn_count, trust_score: hasil.trust_score });
+    }
+  }
+  const akhir = db.prepare('SELECT status, cheat_count, warn_count, trust_score FROM sessions WHERE id = ?').get(segar.id);
+  res.json({
+    ok: true, status: akhir.status, sisa_detik: sisa, server_time: Date.now(),
+    cheat_count: akhir.cheat_count, warn_count: akhir.warn_count,
+    trust_score: akhir.trust_score, terminated: hasil.terminated || akhir.status === 'terminated',
+    batas_pelanggaran: exam ? exam.batas_pelanggaran : 5
   });
 });
 
 app.get('/api/sessions/:id/q/:n', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   if (session.status !== 'active') return res.status(409).json({ error: 'Sesi tidak aktif.' });
   const order = getOrder(session.id, session.exam_id);
   const n = parseInt(req.params.n, 10);
@@ -535,6 +802,8 @@ app.get('/api/sessions/:id/q/:n', authStudent, (req, res) => {
 app.post('/api/sessions/:id/answer', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   if (session.status !== 'active') return res.status(409).json({ error: 'Sesi tidak aktif.' });
   const { question_id, jawaban } = req.body || {};
   const q = db.prepare('SELECT id, tipe FROM questions WHERE id = ? AND exam_id = ?').get(question_id, session.exam_id);
@@ -562,26 +831,24 @@ app.post('/api/sessions/:id/answer', authStudent, (req, res) => {
 app.post('/api/sessions/:id/cheat', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   if (session.status !== 'active') return res.status(409).json({ error: 'Sesi tidak aktif.' });
   const { jenis, berat, detail } = req.body || {};
   const isBerat = (berat === 1 || berat === true) ? 1 : 0;
-  db.prepare('INSERT INTO cheat_logs (session_id, jenis, berat, detail) VALUES (?, ?, ?, ?)')
-    .run(session.id, String(jenis || 'unknown').slice(0, 60), isBerat, String(detail || '').slice(0, 200));
-  if (isBerat) db.prepare('UPDATE sessions SET cheat_count = cheat_count + 1 WHERE id = ?').run(session.id);
-  else db.prepare('UPDATE sessions SET warn_count = warn_count + 1 WHERE id = ?').run(session.id);
-  const upd = db.prepare('SELECT cheat_count FROM sessions WHERE id = ?').get(session.id);
-  const exam = db.prepare('SELECT batas_pelanggaran FROM exams WHERE id = ?').get(session.exam_id);
-  let terminated = false;
-  if (isBerat && upd.cheat_count >= exam.batas_pelanggaran) {
-    finalizeSession(session.id, 'terminated');
-    terminated = true;
+  const hasil = addSessionViolation(session.id, jenis, isBerat, detail, 6000);
+  if (hasil.skipped) {
+    const cur = db.prepare('SELECT cheat_count FROM sessions WHERE id = ?').get(session.id);
+    return res.json({ ok: true, cheat_count: cur ? cur.cheat_count : session.cheat_count, terminated: false, dedup: true });
   }
-  res.json({ ok: true, cheat_count: upd.cheat_count, terminated });
+  res.json({ ok: true, cheat_count: hasil.cheat_count, terminated: !!hasil.terminated });
 });
 
 app.post('/api/sessions/:id/submit', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   if (session.status !== 'active') return res.status(409).json({ error: 'Sesi sudah dikirim atau tidak aktif.' });
   finalizeSession(session.id, 'submitted');
   const result = db.prepare('SELECT * FROM results WHERE session_id = ?').get(session.id);
@@ -591,6 +858,8 @@ app.post('/api/sessions/:id/submit', authStudent, (req, res) => {
 app.get('/api/sessions/:id/map', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   const order = getOrder(session.id, session.exam_id);
   const answers = db.prepare('SELECT question_id, jawaban FROM answers WHERE session_id = ?').all(session.id);
   const marks = db.prepare('SELECT question_id FROM session_marks WHERE session_id = ?').all(session.id);
@@ -605,6 +874,8 @@ app.get('/api/sessions/:id/map', authStudent, (req, res) => {
 app.post('/api/sessions/:id/mark', authStudent, (req, res) => {
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
   if (!session || session.student_id !== req.user.id) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
+  const guard = clientGuard(session);
+  if (guard) return res.status(403).json({ error: guard });
   if (session.status !== 'active') return res.status(409).json({ error: 'Sesi tidak aktif.' });
   const { question_id, ditandai } = req.body || {};
   const q = db.prepare('SELECT id FROM questions WHERE id = ? AND exam_id = ?').get(question_id, session.exam_id);
@@ -787,8 +1058,9 @@ app.post('/api/guru/exams', authTeacher, (req, res) => {
   const aktif = b.aktif ? 1 : 0;
   const acak = b.acak === false ? 0 : 1;
   const batas = parseInt(b.batas_pelanggaran, 10) || 5;
-  const info = db.prepare(`INSERT INTO exams (judul, mapel, durasi_menit, mulai, selesai, aktif, acak, batas_pelanggaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(judul, mapel, durasi, mulai.toISOString(), selesai.toISOString(), aktif, acak, batas);
+  const wajibClient = (b.wajib_client === true || b.wajib_client === 1) ? 1 : 0;
+  const info = db.prepare(`INSERT INTO exams (judul, mapel, durasi_menit, mulai, selesai, aktif, acak, batas_pelanggaran, wajib_client) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(judul, mapel, durasi, mulai.toISOString(), selesai.toISOString(), aktif, acak, batas, wajibClient);
   logAccess(req.user, 'create_exam', 'exam=' + info.lastInsertRowid);
   res.json({ id: info.lastInsertRowid });
 });
@@ -808,11 +1080,12 @@ app.put('/api/guru/exams/:id', authTeacher, (req, res) => {
   const aktif = (b.aktif != null) ? (b.aktif ? 1 : 0) : exam.aktif;
   const acak = (b.acak != null) ? (b.acak ? 1 : 0) : exam.acak;
   const batas = parseInt(b.batas_pelanggaran != null ? b.batas_pelanggaran : exam.batas_pelanggaran, 10);
+  const wajibClient = (b.wajib_client != null) ? ((b.wajib_client === true || b.wajib_client === 1) ? 1 : 0) : exam.wajib_client;
   if (!judul) return res.status(400).json({ error: 'Judul wajib.' });
   if (!Number.isFinite(durasi) || durasi <= 0) return res.status(400).json({ error: 'Durasi tidak valid.' });
   if (selesai <= mulai) return res.status(400).json({ error: 'Jadwal Selesai harus lebih akhir daripada Mulai.' });
-  db.prepare('UPDATE exams SET judul=?, mapel=?, durasi_menit=?, mulai=?, selesai=?, aktif=?, acak=?, batas_pelanggaran=? WHERE id=?')
-    .run(judul, mapel, durasi, mulai.toISOString(), selesai.toISOString(), aktif, acak, batas, id);
+  db.prepare('UPDATE exams SET judul=?, mapel=?, durasi_menit=?, mulai=?, selesai=?, aktif=?, acak=?, batas_pelanggaran=?, wajib_client=? WHERE id=?')
+    .run(judul, mapel, durasi, mulai.toISOString(), selesai.toISOString(), aktif, acak, batas, wajibClient, id);
   logAccess(req.user, 'update_exam', 'exam=' + id);
   res.json({ ok: true });
 });
@@ -849,9 +1122,9 @@ app.post('/api/guru/exams/:id/duplicate', authTeacher, (req, res) => {
   const selesai = b.selesai ? new Date(b.selesai) : new Date(exam.selesai);
   if (selesai <= mulai) return res.status(400).json({ error: 'Jadwal Selesai harus lebih akhir.' });
   const info = db.prepare(`
-    INSERT INTO exams (judul, mapel, durasi_menit, mulai, selesai, aktif, acak, batas_pelanggaran)
-    VALUES (?, ?, ?, ?, ?, 0, ?, ?)
-  `).run(judul, exam.mapel, exam.durasi_menit, mulai.toISOString(), selesai.toISOString(), exam.acak, exam.batas_pelanggaran);
+    INSERT INTO exams (judul, mapel, durasi_menit, mulai, selesai, aktif, acak, batas_pelanggaran, wajib_client)
+    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+  `).run(judul, exam.mapel, exam.durasi_menit, mulai.toISOString(), selesai.toISOString(), exam.acak, exam.batas_pelanggaran, exam.wajib_client);
   const newId = info.lastInsertRowid;
   const qs = db.prepare('SELECT * FROM questions WHERE exam_id = ?').all(id);
   const ins = db.prepare('INSERT INTO questions (exam_id, pertanyaan, stimulus, tipe, opsi_a, opsi_b, opsi_c, opsi_d, opsi_ekstra, kunci) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -1035,6 +1308,8 @@ app.get('/api/guru/exams/:id/monitor', authTeacher, (req, res) => {
   const examId = parseInt(req.params.id, 10);
   const rows = db.prepare(`
     SELECT s.id, s.status, s.cheat_count, s.warn_count, s.last_seen, s.started_at,
+           s.client_id, s.client_platform, s.client_version, s.client_secure,
+           s.last_client_seen, s.client_offline_flag, s.trust_score,
            st.nis, st.nama, st.kelas,
            (SELECT COUNT(*) FROM answers a WHERE a.session_id = s.id) AS terjawab,
            (SELECT COUNT(*) FROM questions q WHERE q.exam_id = s.exam_id) AS total
@@ -1263,9 +1538,28 @@ app.use((err, req, res, next) => {
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
+app.get('/aplikasi', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'client.html')));
+
+// Pemantau heartbeat aplikasi ujian: klien yang berhenti mengirim denyut
+// dianggap pelanggaran berat (misalnya aplikasi ditutup paksa).
+const clientWatchdog = setInterval(() => {
+  try {
+    const cutoff = new Date(Date.now() - CLIENT_OFFLINE_MS).toISOString();
+    const rows = db.prepare(`SELECT id FROM sessions
+      WHERE status = 'active' AND client_id IS NOT NULL AND client_offline_flag = 0
+        AND (last_client_seen IS NULL OR last_client_seen < ?)`).all(cutoff);
+    for (const r of rows) {
+      db.prepare('UPDATE sessions SET client_offline_flag = 1 WHERE id = ?').run(r.id);
+      addSessionViolation(r.id, 'klien-offline', 1,
+        'Heartbeat aplikasi terputus lebih dari ' + Math.round(CLIENT_OFFLINE_MS / 1000) + ' detik', 0);
+    }
+  } catch (e) { console.error('[WATCHDOG] ' + e.message); }
+}, 15000);
+if (clientWatchdog.unref) clientWatchdog.unref();
 
 app.listen(PORT, () => {
   console.log('Server berjalan di http://localhost:' + PORT);
   console.log('Halaman murid  : /');
   console.log('Panel guru     : /guru.html');
+  console.log('Klien ujian    : /client.html (unduh aplikasi Windows/Android)');
 });

@@ -50,6 +50,29 @@ npm start
 
 Buka http://localhost:3000 untuk Halaman Murid dan http://localhost:3000/guru.html untuk Panel Guru.
 
+## Aplikasi Ujian (Windows & Android)
+
+Tersedia klien resmi untuk siswa di folder `client/`:
+
+- **Windows**: installer/portable EXE (Electron, mode kiosk).
+- **Android**: APK (Capacitor, `FLAG_SECURE` + screen pinning).
+
+Halaman unduhan: `/aplikasi`. Panduan build dan konfigurasi ada di
+[`client/README.md`](client/README.md).
+
+Keamanan tambahan yang dipakai:
+
+- Verifikasi HMAC aplikasi saat memulai ujian.
+- Sesi terikat ke `client_id` perangkat.
+- Heartbeat 4 detik; server mencatat pelanggaran jika aplikasi ditutup,
+  kehilangan fokus, keluar fullscreen, multi-monitor, RDP/VM, root/emulator,
+  USB debugging, perekaman layar, atau jam diubah.
+- Skor kepercayaan dan kolom **Perangkat** di Monitor Sesi.
+- Opsi **Wajib Aplikasi Ujian** per ujian.
+
+Aktifkan ujian wajib aplikasi di panel guru saat membuat/mengedit ujian.
+Isi `EXAM_CLIENT_SECRET` di server dan samakan dengan konfigurasi klien.
+
 ## Catatan Keamanan dan Keterbatasan
 
 Penting: Aplikasi ini adalah alat bantu. Pengawas manusia tetap wajib berada di ruangan saat ujian berlangsung.

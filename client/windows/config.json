@@ -1,0 +1,7 @@
+{
+  "serverUrl": "http://localhost:3000",
+  "clientSecret": "ujian-exam-client-v1",
+  "exitPin": "2468",
+  "allowExit": true,
+  "scanProcesses": true
+}
